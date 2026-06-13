@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProposalCraft — AI Proposal Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --dark:#07071A;--navy:#0E0E28;--card:#12123A;--input:#1A1A3E;
+  --border:#2A2A5A;--green:#4ADE80;--cyan:#00D4FF;--gold:#FFAA00;
+  --purple:#7B61FF;--white:#FFFFFF;--gray:#8899AA;--gray2:#AABBCC;
+  --red:#F87171;--accent:#4ADE80;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--dark);color:var(--white);font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;min-height:100vh}
+
+/* SCREENS */
+.screen{display:none;min-height:100vh;padding:40px 20px;max-width:780px;margin:0 auto}
+.screen.active{display:block}
+
+/* LOGO */
+.logo{font-size:20px;font-weight:900;margin-bottom:32px;letter-spacing:-0.5px}
+.logo span{color:var(--green)}
+
+/* API SETUP SCREEN */
+.setup-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:44px;max-width:500px;margin:80px auto 0}
+.setup-icon{font-size:48px;margin-bottom:20px;text-align:center}
+.setup-title{font-size:28px;font-weight:800;margin-bottom:10px;letter-spacing:-0.8px;text-align:center}
+.setup-sub{font-size:14px;color:var(--gray);text-align:center;line-height:1.7;margin-bottom:32px}
+.setup-link{color:var(--cyan);text-decoration:none}
+.setup-link:hover{text-decoration:underline}
+
+/* INPUTS */
+label{display:block;font-size:12px;font-weight:700;color:var(--gray2);letter-spacing:.5px;margin-bottom:6px}
+input,textarea,select{width:100%;padding:12px 14px;background:var(--input);border:1px solid var(--border);border-radius:10px;color:var(--white);font-size:14px;font-family:inherit;transition:border-color .2s;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--green)}
+input::placeholder,textarea::placeholder{color:var(--gray)}
+select option{background:var(--navy)}
+textarea{resize:vertical;min-height:80px}
+.field{margin-bottom:18px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+
+/* BUTTONS */
+.btn{padding:13px 28px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;border:none;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--green);color:var(--dark)}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-outline{background:transparent;color:var(--white);border:1px solid var(--border)}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-cyan{background:var(--cyan);color:var(--dark)}
+.btn-cyan:hover{opacity:.88}
+.btn-block{width:100%;justify-content:center}
+
+/* STEP INDICATOR */
+.steps{display:flex;align-items:center;gap:0;margin-bottom:40px}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--gray)}
+.step.active{color:var(--green)}
+.step.done{color:var(--green)}
+.step-num{width:28px;height:28px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.step.done .step-num{background:var(--green);border-color:var(--green);color:var(--dark)}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 8px}
+
+/* TEMPLATE GRID */
+.tpl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.tpl-card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;text-align:center;transition:all .2s}
+.tpl-card:hover{border-color:rgba(74,222,128,.4);transform:translateY(-2px)}
+.tpl-card.selected{border-color:var(--green);background:rgba(74,222,128,.06)}
+.tpl-icon{font-size:24px;margin-bottom:8px;display:block}
+.tpl-name{font-size:12px;font-weight:700}
+.tpl-desc{font-size:10px;color:var(--gray);margin-top:3px}
+
+/* SECTION HEADER */
+.section-label{font-size:10px;font-weight:800;letter-spacing:2px;color:var(--green);margin-bottom:20px}
+.screen-title{font-size:26px;font-weight:800;margin-bottom:6px;letter-spacing:-0.6px}
+.screen-sub{font-size:14px;color:var(--gray);margin-bottom:32px;line-height:1.6}
+
+/* GENERATING STATE */
+.gen-state{text-align:center;padding:60px 20px}
+.gen-spinner{width:56px;height:56px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 24px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gen-msg{font-size:15px;color:var(--gray);margin-top:8px}
+.gen-step{font-size:13px;color:var(--cyan);margin-top:12px;min-height:20px}
+
+/* PROPOSAL PREVIEW */
+.preview-wrap{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+.preview-doc{background:#fff;color:#111;border-radius:12px;padding:52px;min-height:600px;font-family:Georgia,serif;line-height:1.8;font-size:14px;position:relative}
+.preview-doc h1{font-size:28px;font-weight:700;margin-bottom:4px;color:#07071A;letter-spacing:-0.5px}
+.preview-doc .doc-meta{font-size:12px;color:#666;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #4ADE80}
+.preview-doc h2{font-size:16px;font-weight:700;color:#07071A;margin:28px 0 10px;letter-spacing:-.2px}
+.preview-doc p{margin-bottom:14px;color:#222;font-size:13.5px}
+.preview-doc ul{margin:8px 0 14px 20px}
+.preview-doc ul li{margin-bottom:6px;color:#222;font-size:13.5px}
+.preview-doc .price-highlight{background:#f0fdf4;border-left:4px solid #4ADE80;padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0}
+.preview-doc .price-highlight strong{font-size:22px;color:#07071A}
+.preview-doc .sig-section{margin-top:48px;padding-top:24px;border-top:1px solid #ddd}
+.preview-doc .sig-line{display:flex;gap:40px;margin-top:24px}
+.preview-doc .sig-box{flex:1}
+.preview-doc .sig-box label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#999;display:block;margin-bottom:6px}
+.preview-doc .sig-placeholder{height:56px;border-bottom:1px solid #ccc;display:flex;align-items:flex-end;padding-bottom:6px;font-size:12px;color:#aaa}
+
+/* SIDEBAR ACTIONS */
+.sidebar{display:flex;flex-direction:column;gap:12px;position:sticky;top:24px}
+.action-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px}
+.action-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.action-desc{font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6}
+.share-url{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--cyan);word-break:break-all;margin-bottom:10px;cursor:pointer}
+
+/* SIGNATURE CANVAS */
+.sig-canvas-wrap{border:2px dashed var(--border);border-radius:10px;overflow:hidden;background:#fff;position:relative;margin-bottom:10px}
+#sigCanvas{display:block;cursor:crosshair;touch-action:none}
+.sig-tools{display:flex;gap:8px;margin-bottom:10px}
+.sig-tab{flex:1;padding:7px;background:var(--input);border:1px solid var(--border);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;text-align:center;color:var(--gray);transition:all .2s}
+.sig-tab.active{border-color:var(--green);color:var(--green)}
+
+/* VIEW TRACKING BADGE */
+.tracking-badge{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px;font-size:12px}
+.tracking-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex-shrink:0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* STATUS TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--green);border-radius:12px;padding:14px 20px;font-size:13px;z-index:999;transition:all .3s;opacity:0;transform:translateY(10px);pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* ERROR */
+.err{font-size:12px;color:var(--red);margin-top:6px;display:none}
+.err.show{display:block}
+
+/* NAV BAR ON PREVIEW */
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.back-btn{font-size:13px;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--gray2)}
+.back-btn:hover{color:var(--white)}
+
+/* PRINT STYLES */
+@media print{
+  body{background:#fff!important}
+  .screen{padding:0!important;max-width:none!important}
+  #previewScreen .preview-wrap{grid-template-columns:1fr!important}
+  .sidebar{display:none!important}
+  .top-bar{display:none!important}
+  .preview-doc{box-shadow:none!important;border-radius:0!important;padding:40px!important}
+}
+
+/* RESPONSIVE */
+@media(max-width:700px){
+  .tpl-grid{grid-template-columns:repeat(2,1fr)}
+  .preview-wrap{grid-template-columns:1fr}
+  .field-row{grid-template-columns:1fr}
+  .sidebar{position:static}
+}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SCREEN 1: API KEY SETUP            -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen active" id="setupScreen">
+  <div class="setup-card">
+    <div class="setup-icon">🔑</div>
+    <div class="setup-title">Connect your AI</div>
+    <div class="setup-sub">
+      ProposalCraft uses your own Anthropic API key to generate proposals — your data never touches our servers.<br><br>
+      Don't have a key? <a class="setup-link" href="https://console.anthropic.com" target="_blank">Get one free at console.anthropic.com →</a>
+    </div>
+    <div class="field">
+      <label>ANTHROPIC API KEY</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
+      <div class="err" id="keyErr">Invalid key format — should start with sk-ant-</div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="saveKey()">Connect & Start Building →</button>
+    <p style="font-size:11px;color:var(--gray);text-align:center;margin-top:16px">Your key is stored only in your browser (localStorage). It's never sent to us.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SCREEN 2: TEMPLATE + FORM          -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen" id="formScreen">
+  <div class="logo">Proposal<span>Craft</span></div>
+
+  <div class="steps">
+    <div class="step done" id="step1"><div class="step-num">✓</div><span>API Key</span></div>
+    <div class="step-line"></div>
+    <div class="step active" id="step2"><div class="step-num">2</div><span>Your Proposal</span></div>
+    <div class="step-line"></div>
+    <div class="step" id="step3"><div class="step-num">3</div><span>Preview & Export</span></div>
+  </div>
+
+  <div class="section-label">STEP 1 — CHOOSE TEMPLATE</div>
+  <div class="tpl-grid">
+    <div class="tpl-card selected" onclick="selectTemplate(this,'Web Design')" data-tpl="Web Design">
+      <span class="tpl-icon">💻</span><div class="tpl-name">Web Design</div><div class="tpl-desc">Sites, landing pages</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'App Development')" data-tpl="App Development">
+      <span class="tpl-icon">📱</span><div class="tpl-name">App Dev</div><div class="tpl-desc">iOS, Android, web</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'Marketing & SEO')" data-tpl="Marketing & SEO">
+      <span class="tpl-icon">📊</span><div class="tpl-name">Marketing</div><div class="tpl-desc">SEO, ads, social</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'Graphic Design & Branding')" data-tpl="Graphic Design & Branding">
+      <span class="tpl-icon">🎨</span><div class="tpl-name">Design & Brand</div><div class="tpl-desc">Logos, identity</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'Photography & Video')" data-tpl="Photography & Video">
+      <span class="tpl-icon">📷</span><div class="tpl-name">Photo & Video</div><div class="tpl-desc">Events, portraits</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'Consulting & Strategy')" data-tpl="Consulting & Strategy">
+      <span class="tpl-icon">🧑‍💼</span><div class="tpl-name">Consulting</div><div class="tpl-desc">Strategy, ops</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'Copywriting & Content')" data-tpl="Copywriting & Content">
+      <span class="tpl-icon">✍️</span><div class="tpl-name">Copywriting</div><div class="tpl-desc">Blogs, copy</div>
+    </div>
+    <div class="tpl-card" onclick="selectTemplate(this,'Construction & Renovation')" data-tpl="Construction & Renovation">
+      <span class="tpl-icon">🏗️</span><div class="tpl-name">Construction</div><div class="tpl-desc">Builds, renovation</div>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:8px">STEP 2 — PROJECT DETAILS</div>
+  <div class="field-row">
+    <div class="field">
+      <label>YOUR NAME / COMPANY</label>
+      <input type="text" id="f_yourName" placeholder="e.g. Ahmed Hassan / Nile Creative">
+    </div>
+    <div class="field">
+      <label>CLIENT NAME / COMPANY</label>
+      <input type="text" id="f_clientName" placeholder="e.g. Mario Kitchen">
+    </div>
+  </div>
+  <div class="field">
+    <label>PROJECT TITLE</label>
+    <input type="text" id="f_projectTitle" placeholder="e.g. Website Redesign & SEO Campaign">
+  </div>
+  <div class="field">
+    <label>SCOPE OF WORK — WHAT WILL YOU DELIVER?</label>
+    <textarea id="f_scope" rows="4" placeholder="e.g. 5-page responsive website, logo refresh, 3 rounds of revisions, hosting setup, Google Analytics integration..."></textarea>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label>TOTAL PRICE</label>
+      <input type="text" id="f_price" placeholder="e.g. $3,500">
+    </div>
+    <div class="field">
+      <label>PAYMENT TERMS</label>
+      <select id="f_payment">
+        <option>50% upfront, 50% on delivery</option>
+        <option>100% upfront</option>
+        <option>33% upfront, 33% midpoint, 33% delivery</option>
+        <option>Monthly retainer</option>
+        <option>Net 30 after delivery</option>
+      </select>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label>PROJECT TIMELINE</label>
+      <input type="text" id="f_timeline" placeholder="e.g. 3 weeks / June 15 – July 5">
+    </div>
+    <div class="field">
+      <label>NUMBER OF REVISIONS</label>
+      <select id="f_revisions">
+        <option>2 rounds of revisions</option>
+        <option>1 round of revisions</option>
+        <option>3 rounds of revisions</option>
+        <option>Unlimited revisions</option>
+      </select>
+    </div>
+  </div>
+  <div class="field">
+    <label>ANYTHING ELSE TO INCLUDE? (optional)</label>
+    <textarea id="f_extra" rows="2" placeholder="e.g. Deliverables, what's NOT included, special terms, warranty period..."></textarea>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:8px">
+    <button class="btn btn-outline" onclick="goSetup()">← API Key</button>
+    <button class="btn btn-primary" onclick="generateProposal()" id="genBtn">✨ Generate Proposal</button>
+  </div>
+  <div class="err" id="formErr" style="margin-top:12px">Please fill in all required fields.</div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SCREEN 3: GENERATING              -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen" id="genScreen">
+  <div class="logo">Proposal<span>Craft</span></div>
+  <div class="gen-state">
+    <div class="gen-spinner"></div>
+    <div style="font-size:18px;font-weight:700">Writing your proposal...</div>
+    <div class="gen-msg">AI is crafting a professional, client-ready proposal based on your details.</div>
+    <div class="gen-step" id="genStep">Analyzing project scope...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SCREEN 4: PREVIEW & EXPORT        -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen" id="previewScreen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goForm()">← Edit details</button>
+    <div class="logo" style="margin:0">Proposal<span>Craft</span></div>
+    <button class="btn btn-outline" onclick="window.print()" style="font-size:12px;padding:8px 16px">🖨️ Print / PDF</button>
+  </div>
+
+  <div class="steps" style="margin-bottom:32px">
+    <div class="step done" id="ps1"><div class="step-num">✓</div><span>API Key</span></div>
+    <div class="step-line"></div>
+    <div class="step done" id="ps2"><div class="step-num">✓</div><span>Your Proposal</span></div>
+    <div class="step-line"></div>
+    <div class="step active" id="ps3"><div class="step-num">3</div><span>Preview & Export</span></div>
+  </div>
+
+  <div class="preview-wrap">
+    <!-- PROPOSAL DOCUMENT -->
+    <div class="preview-doc" id="proposalDoc">
+      <!-- Filled by JS -->
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <!-- EXPORT -->
+      <div class="action-card">
+        <div class="action-title">📄 Export PDF</div>
+        <div class="action-desc">Print this page to save as PDF — use "Save as PDF" in the print dialog.</div>
+        <button class="btn btn-primary btn-block" onclick="window.print()">Download PDF</button>
+      </div>
+
+      <!-- SHARE LINK -->
+      <div class="action-card">
+        <div class="action-title">🔗 Shareable Link</div>
+        <div class="action-desc">Share this link with your client. You'll be notified when they open it.</div>
+        <div class="share-url" id="shareUrl" onclick="copyShareLink()">Generating link...</div>
+        <button class="btn btn-outline btn-block" style="font-size:12px" onclick="copyShareLink()">📋 Copy Link</button>
+      </div>
+
+      <!-- VIEW TRACKING -->
+      <div class="action-card">
+        <div class="action-title">👁️ View Tracking</div>
+        <div class="tracking-badge" id="trackingBadge">
+          <div class="tracking-dot"></div>
+          <span id="trackingText">Tracking active — you'll see views in real time</span>
+        </div>
+        <div id="viewCount" style="font-size:12px;color:var(--gray);margin-top:10px"></div>
+      </div>
+
+      <!-- E-SIGNATURE -->
+      <div class="action-card">
+        <div class="action-title">✍️ Client Signature</div>
+        <div class="action-desc">Send the share link — your client can sign directly in their browser.</div>
+        <div class="sig-tools">
+          <div class="sig-tab active" onclick="setSigMode('draw',this)">Draw</div>
+          <div class="sig-tab" onclick="setSigMode('type',this)">Type</div>
+        </div>
+        <div class="sig-canvas-wrap">
+          <canvas id="sigCanvas" width="296" height="90"></canvas>
+          <input type="text" id="sigTypeInput" placeholder="Type your name..." style="display:none;border:none;background:#fff;color:#111;font-family:'Brush Script MT',cursive;font-size:26px;padding:20px 12px;width:100%">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-block" onclick="clearSig()" style="font-size:12px;padding:9px">Clear</button>
+          <button class="btn btn-cyan btn-block" onclick="applySig()" style="font-size:12px;padding:9px">Apply Signature</button>
+        </div>
+      </div>
+
+      <!-- NEW PROPOSAL -->
+      <button class="btn btn-outline btn-block" onclick="newProposal()">+ New Proposal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SIGNATURE VIEW (client opens link) -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen" id="sigViewScreen">
+  <div class="logo" style="text-align:center">Proposal<span>Craft</span></div>
+  <div style="max-width:680px;margin:0 auto">
+    <div class="preview-doc" id="sigViewDoc" style="margin-bottom:28px"></div>
+    <div class="action-card">
+      <div class="action-title" style="font-size:15px;margin-bottom:14px">✍️ Sign this proposal</div>
+      <div class="sig-tools">
+        <div class="sig-tab active" onclick="setSigModeView('draw',this)">Draw signature</div>
+        <div class="sig-tab" onclick="setSigModeView('type',this)">Type signature</div>
+      </div>
+      <div class="sig-canvas-wrap">
+        <canvas id="sigCanvasView" width="620" height="110"></canvas>
+        <input type="text" id="sigTypeView" placeholder="Type your name..." style="display:none;border:none;background:#fff;color:#111;font-family:'Brush Script MT',cursive;font-size:30px;padding:24px 16px;width:100%">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn btn-outline" onclick="clearSigView()">Clear</button>
+        <button class="btn btn-primary" onclick="submitSig()">✅ Sign & Submit Proposal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://hvyfeebazmiqateniupm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2eWZlZWJhem1pcWF0ZW5pdXBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMTI2MTcsImV4cCI6MjA5NTY4ODYxN30.89qqEshOwp1bU2AQbzSpZ36_TuqP2jVULo_9Ug-S9_c';
+
+let selectedTemplate = 'Web Design';
+let generatedHTML = '';
+let proposalId = null;
+let sigMode = 'draw';
+let sigModeView = 'draw';
+let isDrawing = false;
+let sigData = null;
+
+// ─── NAVIGATION ────────────────────────────────────────
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
+
+function goSetup(){ showScreen('setupScreen'); }
+function goForm(){ showScreen('formScreen'); }
+
+// ─── TOAST ─────────────────────────────────────────────
+function toast(msg,dur=3000){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+// ─── API KEY ───────────────────────────────────────────
+function saveKey(){
+  const key=document.getElementById('apiKeyInput').value.trim();
+  const err=document.getElementById('keyErr');
+  if(!key.startsWith('sk-ant-') && !key.startsWith('sk-')){ err.classList.add('show'); return; }
+  err.classList.remove('show');
+  localStorage.setItem('pc_api_key', key);
+  showScreen('formScreen');
+}
+
+// ─── TEMPLATE SELECTION ────────────────────────────────
+function selectTemplate(el, name){
+  document.querySelectorAll('.tpl-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTemplate = name;
+}
+
+// ─── GENERATE PROPOSAL ─────────────────────────────────
+async function generateProposal(){
+  const fields = ['f_yourName','f_clientName','f_projectTitle','f_scope','f_price'];
+  for(const f of fields){
+    if(!document.getElementById(f).value.trim()){
+      document.getElementById('formErr').classList.add('show');
+      document.getElementById(f).focus();
+      return;
+    }
+  }
+  document.getElementById('formErr').classList.remove('show');
+
+  const data = {
+    template: selectedTemplate,
+    yourName: document.getElementById('f_yourName').value.trim(),
+    clientName: document.getElementById('f_clientName').value.trim(),
+    projectTitle: document.getElementById('f_projectTitle').value.trim(),
+    scope: document.getElementById('f_scope').value.trim(),
+    price: document.getElementById('f_price').value.trim(),
+    payment: document.getElementById('f_payment').value,
+    timeline: document.getElementById('f_timeline').value.trim(),
+    revisions: document.getElementById('f_revisions').value,
+    extra: document.getElementById('f_extra').value.trim()
+  };
+
+  showScreen('genScreen');
+
+  const steps = ['Analyzing project scope...','Writing executive summary...','Crafting deliverables section...','Adding pricing & terms...','Finalizing proposal...'];
+  let si=0;
+  const stepEl = document.getElementById('genStep');
+  const stepInterval = setInterval(()=>{ if(si<steps.length){ stepEl.textContent=steps[si++]; } },1800);
+
+  try{
+    const key = localStorage.getItem('pc_api_key');
+    const prompt = `You are a professional proposal writer. Write a complete, polished business proposal as clean HTML (no <!DOCTYPE>, no <html>/<head>/<body> tags, just the inner content).
+
+Template type: ${data.template}
+From: ${data.yourName}
+To: ${data.clientName}
+Project: ${data.projectTitle}
+Scope: ${data.scope}
+Price: ${data.price}
+Payment: ${data.payment}
+Timeline: ${data.timeline}
+Revisions: ${data.revisions}
+Additional details: ${data.extra || 'None'}
+
+Write a complete professional proposal with these sections using simple HTML (h1, h2, p, ul, li tags only — no CSS, no classes):
+1. Header (proposal title, date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}, from/to info)
+2. Executive Summary (2-3 compelling paragraphs about this specific project and its value to the client)
+3. Scope of Work (detailed bullet points of exactly what will be delivered)
+4. Project Timeline (phases with time estimates)
+5. Investment (pricing with a highlighted total, payment structure)
+6. What's Included (bullet list)
+7. What's Not Included (brief, professional boundary-setting)
+8. Revision Policy
+9. Terms & Conditions (payment terms, ownership of work upon final payment, confidentiality)
+10. Next Steps (how to proceed, sign below)
+
+Make it specific to ${data.template} industry. Write in a confident, professional tone. Use real, specific details from the scope provided. Do not use placeholder text. Return only clean HTML content.`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:prompt}]})
+    });
+
+    clearInterval(stepInterval);
+    const json = await resp.json();
+
+    if(json.error){ throw new Error(json.error.message); }
+
+    generatedHTML = json.content[0].text.replace(/```html\n?/g,'').replace(/```\n?/g,'').trim();
+
+    // Save to Supabase for tracking
+    proposalId = await saveProposal(data, generatedHTML);
+
+    renderPreview();
+    showScreen('previewScreen');
+  }catch(e){
+    clearInterval(stepInterval);
+    toast('Error: '+e.message, 5000);
+    showScreen('formScreen');
+  }
+}
+
+// ─── RENDER PREVIEW ────────────────────────────────────
+function renderPreview(){
+  const doc = document.getElementById('proposalDoc');
+  doc.innerHTML = generatedHTML;
+
+  // Add signature section if not present
+  if(!doc.querySelector('.sig-section')){
+    const sigSection = document.createElement('div');
+    sigSection.className='sig-section';
+    sigSection.id='sigSectionDoc';
+    sigSection.innerHTML=`
+      <h2 style="font-size:15px;margin-bottom:8px">Acceptance</h2>
+      <p style="font-size:12px;color:#666">By signing below, both parties agree to the terms outlined in this proposal.</p>
+      <div class="sig-line">
+        <div class="sig-box">
+          <label>Client Signature</label>
+          <div class="sig-placeholder" id="clientSigDisplay">Awaiting signature...</div>
+          <div style="font-size:11px;margin-top:4px;color:#999" id="clientSigDate"></div>
+        </div>
+        <div class="sig-box">
+          <label>Freelancer Signature</label>
+          <div class="sig-placeholder">${document.getElementById('f_yourName').value}</div>
+          <div style="font-size:11px;margin-top:4px;color:#999">${new Date().toLocaleDateString()}</div>
+        </div>
+      </div>`;
+    doc.appendChild(sigSection);
+  }
+
+  // Set share link
+  const shareLink = generateShareLink();
+  document.getElementById('shareUrl').textContent = shareLink;
+  checkViews();
+}
+
+// ─── SUPABASE — SAVE PROPOSAL ──────────────────────────
+async function saveProposal(data, html){
+  try{
+    const id = 'pc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    await fetch(`${SUPABASE_URL}/rest/v1/pc_proposals`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body:JSON.stringify({
+        proposal_id: id,
+        client_name: data.clientName,
+        project_title: data.projectTitle,
+        template_type: data.template,
+        price: data.price,
+        seller_name: data.yourName,
+        proposal_html: html,
+        view_count: 0
+      }),
+    });
+    return id;
+  }catch(e){ return 'pc_'+Date.now(); }
+}
+
+// ─── SHARE LINK ────────────────────────────────────────
+function generateShareLink(){
+  if(!proposalId) return window.location.href+'#view='+Date.now();
+  return window.location.href.split('#')[0]+'#view='+proposalId;
+}
+
+function copyShareLink(){
+  const link=document.getElementById('shareUrl').textContent;
+  navigator.clipboard.writeText(link).then(()=>toast('Link copied!')).catch(()=>{
+    const el=document.createElement('textarea');
+    el.value=link; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); document.body.removeChild(el);
+    toast('Link copied!');
+  });
+}
+
+// ─── VIEW TRACKING ─────────────────────────────────────
+async function trackView(proposalId){
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_proposal_view`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+      body:JSON.stringify({pid:proposalId})
+    });
+  }catch(e){}
+}
+
+async function checkViews(){
+  if(!proposalId) return;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/pc_proposals?proposal_id=eq.${proposalId}&select=view_count`,{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    const data=await r.json();
+    if(data[0]){
+      const vc=data[0].view_count||0;
+      document.getElementById('viewCount').textContent=vc===0?'No views yet — share your link!':vc+' view'+(vc>1?'s':'');
+    }
+  }catch(e){}
+}
+
+// ─── SIGNATURE (SELLER SIDE) ───────────────────────────
+function setupCanvas(canvasId){
+  const canvas=document.getElementById(canvasId);
+  const ctx=canvas.getContext('2d');
+  ctx.strokeStyle='#0E0E28';
+  ctx.lineWidth=2.5;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+
+  const getPos=(e,c)=>{
+    const rect=c.getBoundingClientRect();
+    const scaleX=c.width/rect.width;
+    const scaleY=c.height/rect.height;
+    const src=e.touches?e.touches[0]:e;
+    return {x:(src.clientX-rect.left)*scaleX, y:(src.clientY-rect.top)*scaleY};
+  };
+
+  canvas.addEventListener('mousedown',e=>{isDrawing=true;ctx.beginPath();const p=getPos(e,canvas);ctx.moveTo(p.x,p.y)});
+  canvas.addEventListener('mousemove',e=>{if(!isDrawing)return;const p=getPos(e,canvas);ctx.lineTo(p.x,p.y);ctx.stroke()});
+  canvas.addEventListener('mouseup',()=>{isDrawing=false});
+  canvas.addEventListener('mouseleave',()=>{isDrawing=false});
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();isDrawing=true;ctx.beginPath();const p=getPos(e,canvas);ctx.moveTo(p.x,p.y)},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!isDrawing)return;const p=getPos(e,canvas);ctx.lineTo(p.x,p.y);ctx.stroke()},{passive:false});
+  canvas.addEventListener('touchend',()=>{isDrawing=false});
+  return ctx;
+}
+
+let sigCtx=null, sigCtxView=null;
+window.addEventListener('load',()=>{
+  sigCtx=setupCanvas('sigCanvas');
+  sigCtxView=setupCanvas('sigCanvasView');
+});
+
+function setSigMode(mode,el){
+  sigMode=mode;
+  document.querySelectorAll('#previewScreen .sig-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('sigCanvas').style.display=mode==='draw'?'block':'none';
+  document.getElementById('sigTypeInput').style.display=mode==='type'?'block':'none';
+}
+
+function setSigModeView(mode,el){
+  sigModeView=mode;
+  document.querySelectorAll('#sigViewScreen .sig-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('sigCanvasView').style.display=mode==='draw'?'block':'none';
+  document.getElementById('sigTypeView').style.display=mode==='type'?'block':'none';
+}
+
+function clearSig(){
+  const c=document.getElementById('sigCanvas');
+  sigCtx.clearRect(0,0,c.width,c.height);
+  document.getElementById('sigTypeInput').value='';
+}
+
+function clearSigView(){
+  const c=document.getElementById('sigCanvasView');
+  sigCtxView.clearRect(0,0,c.width,c.height);
+  document.getElementById('sigTypeView').value='';
+}
+
+function applySig(){
+  let sigImg=null;
+  if(sigMode==='draw'){
+    const c=document.getElementById('sigCanvas');
+    sigImg=c.toDataURL();
+  }
+  const display=document.getElementById('clientSigDisplay');
+  const dateEl=document.getElementById('clientSigDate');
+  if(display){
+    if(sigMode==='draw'){
+      display.innerHTML=`<img src="${sigImg}" style="max-height:50px">`;
+    } else {
+      const name=document.getElementById('sigTypeInput').value;
+      display.innerHTML=`<span style="font-family:'Brush Script MT',cursive;font-size:24px;color:#111">${name}</span>`;
+    }
+    if(dateEl) dateEl.textContent='Signed '+new Date().toLocaleString();
+  }
+  toast('Signature applied! Download PDF to save.');
+}
+
+// ─── CLIENT SIGNATURE VIEW ─────────────────────────────
+async function submitSig(){
+  let sigImg=null;
+  if(sigModeView==='draw'){
+    const c=document.getElementById('sigCanvasView');
+    sigImg=c.toDataURL();
+  } else {
+    const name=document.getElementById('sigTypeView').value.trim();
+    if(!name){toast('Please enter your name');return;}
+  }
+
+  // Update proposal signature in Supabase
+  const urlPid=new URLSearchParams(location.hash.slice(1).replace('view=','')).get(null)||location.hash.split('view=')[1];
+  if(urlPid){
+    try{
+      await fetch(`${SUPABASE_URL}/rest/v1/pc_proposals?proposal_id=eq.${urlPid}`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+        body:JSON.stringify({signed:true,signed_at:new Date().toISOString()})
+      });
+    }catch(e){}
+  }
+
+  // Show confirmation
+  document.getElementById('sigViewScreen').innerHTML=`
+    <div style="max-width:500px;margin:120px auto;text-align:center;padding:20px">
+      <div style="font-size:64px;margin-bottom:20px">✅</div>
+      <h1 style="font-size:28px;font-weight:800;margin-bottom:12px">Proposal Signed!</h1>
+      <p style="color:var(--gray);line-height:1.7">Thank you for signing. The proposal author has been notified. You'll receive a copy via email shortly.</p>
+    </div>`;
+}
+
+// ─── NEW PROPOSAL ──────────────────────────────────────
+function newProposal(){
+  document.getElementById('f_yourName').value='';
+  document.getElementById('f_clientName').value='';
+  document.getElementById('f_projectTitle').value='';
+  document.getElementById('f_scope').value='';
+  document.getElementById('f_price').value='';
+  document.getElementById('f_extra').value='';
+  generatedHTML=''; proposalId=null;
+  showScreen('formScreen');
+}
+
+// ─── INIT — CHECK HASH FOR VIEW MODE ──────────────────
+async function init(){
+  const hash=location.hash;
+  if(hash.includes('view=')){
+    const pid=hash.split('view=')[1];
+    showScreen('sigViewScreen');
+    // Track this view
+    await trackView(pid);
+    // Load proposal from Supabase
+    try{
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/pc_proposals?proposal_id=eq.${pid}&select=proposal_html,client_name,project_title,view_count`,{
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+      });
+      const data=await r.json();
+      if(data[0]){
+        document.getElementById('sigViewDoc').innerHTML=data[0].proposal_html;
+      }
+    }catch(e){}
+    return;
+  }
+  // Check for saved API key
+  const savedKey=localStorage.getItem('pc_api_key');
+  if(savedKey){ showScreen('formScreen'); }
+  else { showScreen('setupScreen'); }
+}
+
+init();
+</script>
+</body>
+</html>
