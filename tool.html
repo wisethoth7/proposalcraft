@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ProposalCraft — AI Proposal Generator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <style>
 :root{
   --dark:#07071A;--navy:#0E0E28;--card:#12123A;--input:#1A1A3E;
@@ -506,7 +507,7 @@ Make it specific to ${data.template} industry. Write in a confident, professiona
 
     if(json.error){ throw new Error(json.error.message); }
 
-    generatedHTML = json.content[0].text.replace(/```html\n?/g,'').replace(/```\n?/g,'').trim();
+    generatedHTML = DOMPurify.sanitize(json.content[0].text.replace(/```html\n?/g,'').replace(/```\n?/g,'').trim());
 
     // Save to Supabase for tracking
     proposalId = await saveProposal(data, generatedHTML);
@@ -757,7 +758,7 @@ async function init(){
       });
       const data=await r.json();
       if(data[0]){
-        document.getElementById('sigViewDoc').innerHTML=data[0].proposal_html;
+        document.getElementById('sigViewDoc').innerHTML=DOMPurify.sanitize(data[0].proposal_html);
       }
     }catch(e){}
     return;
