@@ -560,10 +560,13 @@ function renderPreview(){
 }
 
 // ─── SUPABASE — SAVE PROPOSAL ──────────────────────────
+// Returns the stored proposal's id, or null if nothing was stored.
+// It must never invent an id: the caller turns the id into a share link, and
+// a fabricated one looks like a working link but resolves to nothing.
 async function saveProposal(data, html){
+  const id = 'pc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
   try{
-    const id = 'pc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    await fetch(`${SUPABASE_URL}/rest/v1/pc_proposals`,{
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/pc_proposals`,{
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
       body:JSON.stringify({
@@ -577,8 +580,10 @@ async function saveProposal(data, html){
         view_count: 0
       }),
     });
+    // PostgREST answers 4xx/5xx without throwing, so check explicitly.
+    if(!resp.ok){ console.error('saveProposal failed', resp.status); return null; }
     return id;
-  }catch(e){ return 'pc_'+Date.now(); }
+  }catch(e){ console.error('saveProposal error', e); return null; }
 }
 
 // ─── SHARE LINK ────────────────────────────────────────
