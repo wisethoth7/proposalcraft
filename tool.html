@@ -587,9 +587,17 @@ async function saveProposal(data, html){
 }
 
 // ─── SHARE LINK ────────────────────────────────────────
+// The hosted copy of this page. It has to be fixed: buyers run tool.html from
+// their own computer, where window.location.href is a file:///… path, and a share
+// link built from that opens nothing on the client's machine.
+// Switch this to https://proposalcraft.niledreamsdigital.com/tool.html once that
+// subdomain is live (Horus approves the DNS step); the GitHub Pages copy below is
+// the same file from the same repo and stays valid either way.
+const VIEWER_URL = 'https://wisethoth7.github.io/proposalcraft/tool.html';
+
 function generateShareLink(){
   if(!proposalId) return '';
-  return window.location.href.split('#')[0]+'#view='+proposalId;
+  return VIEWER_URL+'#view='+proposalId;
 }
 
 // Put the share card back to its pre-publish state
@@ -839,7 +847,7 @@ init();
 <script>
 initRa({
   accentColor: '#4ADE80',
-  systemPrompt: 'You are Ra, the AI support agent for ProposalCraft. Help users with: setting up their Anthropic API key (create one at console.anthropic.com — it is pay-as-you-go, roughly a cent of usage per proposal, not free), generating proposals (fill in the form and click generate), customizing the output, exporting as PDF or Word, sharing via link, and using e-signature. On privacy: the API key is kept only in the browser, and a proposal is stored on our server only when the user creates a share link (needed so the client can open and sign it) — generating alone stores nothing. For refunds or billing contact support@niledreamsdigital.com.'
+  app: 'proposalcraft-tool',
 });
 </script>
 </body>

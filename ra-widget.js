@@ -1,9 +1,11 @@
 // Ra — AI Support Widget | Nile Dreams Digital
-// Usage: initRa({ systemPrompt: '...', accentColor: '#FF6B35' })
+// Usage: initRa({ app: 'replydraft', accentColor: '#FF6B35' })
+// Ra's instructions live in the ra-chat edge function, keyed by `app`; a page
+// cannot choose them. `getAuthToken` is only needed where tools are used.
 (function () {
   const RA_ENDPOINT = 'https://hvyfeebazmiqateniupm.supabase.co/functions/v1/ra-chat';
 
-  window.initRa = function ({ systemPrompt = '', accentColor = '#FF6B35', productName = 'Ra' } = {}) {
+  window.initRa = function ({ app = '', accentColor = '#FF6B35', productName = 'Ra', getAuthToken = null } = {}) {
     if (document.getElementById('ra-fab')) return; // already mounted
 
     const ac = accentColor;
@@ -158,6 +160,18 @@
       appendMessage('bot', "Hi! I'm Ra, your AI support assistant. How can I help you today?");
     }
 
+    // The signed-in visitor's own session token, when the page supplies one. The
+    // server uses it to tell an owner from a stranger before it will accept tools.
+    async function raHeaders() {
+      const h = { 'Content-Type': 'application/json' };
+      if (getAuthToken) {
+        try {
+          const token = await getAuthToken();
+          if (token) h.Authorization = 'Bearer ' + token;
+        } catch (_) { /* no token — the server decides what that may do */ }
+      }
+      return h;
+    }
     async function sendMessage() {
       const text = inputEl.value.trim();
       if (!text) return;
@@ -174,9 +188,9 @@
       try {
         const res = await fetch(RA_ENDPOINT, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await raHeaders(),
           body: JSON.stringify({
-            system: systemPrompt,
+            app,
             messages: conversationHistory,
             maxTokens: 512,
           }),
